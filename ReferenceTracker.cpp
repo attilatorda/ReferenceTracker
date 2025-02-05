@@ -1,4 +1,4 @@
-#include <vector>
+#include <unordered_set>
 #include <algorithm>
 #include <iostream>
 
@@ -7,7 +7,7 @@ class ReferenceTracker {
 public:
     // Add a pointer to the reference list
     void addReference(T*& ref) {
-        references.push_back(&ref);
+        references.insert(&ref);
     }
 
     // Remove a pointer from the reference list
@@ -31,7 +31,7 @@ public:
     }
 
 private:
-    std::vector<T**> references;
+    std::unordered_set<T**> references;
 };
 
 class TrackedObject {
