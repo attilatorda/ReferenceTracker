@@ -66,7 +66,7 @@ The implementation revolves around two key components:
 | **Weak Reference**            | Tracked external pointers.        | `std::weak_ptr` observes without incrementing the count. |
 | **Lifetime Management**       | Requires explicit deletion.       | Automatic, based on reference count. |
 | **Weak Reference Invalidation** | Clears pointers on destruction.   | Weak pointers become expired (`expired() == true`). |
-| **Overhead**                  | Minimal (list of pointers).       | Higher (atomic reference counts). |
+| **Overhead**                  | Minimal (set of pointers).       | Higher (atomic reference counts). |
 
 ---
 
