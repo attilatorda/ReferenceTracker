@@ -1,47 +1,54 @@
+#include <vector>
 #include <unordered_set>
-#include <algorithm>
+#include <mutex>
 #include <iostream>
+#include <memory>
 
-template <typename T>
+// NoMutex class for thread-unsafe implementation
+class NoMutex {
+public:
+    void lock() {}
+    void unlock() {}
+};
+
+// ReferenceTracker class template
+template <typename T, typename MutexType = NoMutex>
 class ReferenceTracker {
 public:
-    // Add a pointer to the reference list
     void addReference(T*& ref) {
+        std::lock_guard<MutexType> lock(mutex);
         references.insert(&ref);
     }
 
-    // Remove a pointer from the reference list
     void removeReference(T*& ref) {
-        auto it = std::find(references.begin(), references.end(), &ref);
-        if (it != references.end()) {
-            references.erase(it);
-        }
+        std::lock_guard<MutexType> lock(mutex);
+        references.erase(&ref);
     }
 
-    // Set all tracked references to nullptr
     void clearReferences() {
+        std::lock_guard<MutexType> lock(mutex);
         for (T** ref : references) {
-            *ref = nullptr;
+            if (ref) {
+                *ref = nullptr;
+            }
         }
         references.clear();
     }
 
-    ~ReferenceTracker() {
-        clearReferences();
-    }
-
 private:
     std::unordered_set<T**> references;
+    MutexType mutex;
 };
 
+// TrackedObject class template
+template <typename MutexType = NoMutex>
 class TrackedObject {
 public:
-    TrackedObject() : tracker(new ReferenceTracker<TrackedObject>()) {}
+    TrackedObject() : tracker(std::make_unique<ReferenceTracker<TrackedObject, MutexType>>()) {}
 
     ~TrackedObject() {
         std::cout << "TrackedObject destroyed\n";
         tracker->clearReferences(); // Clear all references before destruction
-        delete tracker;
     }
 
     void addReference(TrackedObject*& ref) {
@@ -53,27 +60,51 @@ public:
     }
 
 private:
-    ReferenceTracker<TrackedObject>* tracker;
+    std::unique_ptr<ReferenceTracker<TrackedObject, MutexType>> tracker;
 };
 
-int main() {
-    TrackedObject* obj = new TrackedObject();
-    TrackedObject* ref1 = obj;  // Another reference
-    TrackedObject* ref2 = obj;  // Another reference
+// Demo for thread-unsafe version
+void demoThreadUnsafe() {
+    std::cout << "=== Thread-Unsafe Demo ===\n";
+    TrackedObject<NoMutex>* obj = new TrackedObject<NoMutex>(); 
+    TrackedObject<NoMutex>* ref1 = obj;
+    TrackedObject<NoMutex>* ref2 = obj;
 
-    // Track references
     obj->addReference(ref1);
     obj->addReference(ref2);
 
-    // Destroy the object
     delete obj;
 
-    // Now ref1 and ref2 are set to nullptr
     if (ref1 == nullptr && ref2 == nullptr) {
         std::cout << "References cleared successfully.\n";
     } else {
         std::cout << "References still pointing to old memory!\n";
     }
+}
+
+// Demo for thread-safe version
+void demoThreadSafe() {
+    std::cout << "=== Thread-Safe Demo ===\n";
+    TrackedObject<std::mutex>* obj = new TrackedObject<std::mutex>();
+    TrackedObject<std::mutex>* ref1 = obj;
+    TrackedObject<std::mutex>* ref2 = obj;
+
+    obj->addReference(ref1);
+    obj->addReference(ref2);
+
+    delete obj;
+
+    if (ref1 == nullptr && ref2 == nullptr) {
+        std::cout << "References cleared successfully.\n";
+    } else {
+        std::cout << "References still pointing to old memory!\n";
+    }
+}
+
+int main() {
+    
+    demoThreadUnsafe();
+    demoThreadSafe();
 
     return 0;
 }
